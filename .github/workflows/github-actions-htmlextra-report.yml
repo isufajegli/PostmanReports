@@ -8,13 +8,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       
-   # INstall Node on the runner
+   # Install Node on the runner
       - name: Install Node
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with: 
-          node-version: '16.x'
+          node-version: '18.x'
+          cache: 'npm'
 
     
     # Install the newman command line utility and also install the html extra reporter
@@ -23,17 +24,72 @@ jobs:
           npm install -g newman
           npm install -g newman-reporter-htmlextra
           
+    # Verify Newman installation
+      - name: Verify Newman Installation
+        run: |
+          newman --version
+          echo "Newman successfully installed"
+          
+    # Validate Postman collection
+      - name: Validate Collection
+        run: |
+          echo "Checking collection file..."
+          if [ -f "Restful Booker BVT.postman_collection.json" ]; then
+            echo "Collection file found"
+            echo "Collection file size: $(wc -c < 'Restful Booker BVT.postman_collection.json') bytes"
+            
+            # Validate JSON syntax
+            if python3 -m json.tool "Restful Booker BVT.postman_collection.json" > /dev/null 2>&1; then
+              echo "✅ Collection JSON syntax is valid"
+            else
+              echo "❌ Collection JSON syntax is invalid"
+              python3 -m json.tool "Restful Booker BVT.postman_collection.json" || true
+              exit 1
+            fi
+          else
+            echo "ERROR: Collection file not found!"
+            exit 1
+          fi
+          
+          echo "Checking environment file..."
+          if [ -f "Production.postman_environment.json" ]; then
+            echo "Environment file found"
+            echo "Environment file size: $(wc -c < 'Production.postman_environment.json') bytes"
+            
+            # Validate JSON syntax
+            if python3 -m json.tool "Production.postman_environment.json" > /dev/null 2>&1; then
+              echo "✅ Environment JSON syntax is valid"
+            else
+              echo "❌ Environment JSON syntax is invalid"
+              python3 -m json.tool "Production.postman_environment.json" || true
+              exit 1
+            fi
+          else
+            echo "ERROR: Environment file not found!"
+            exit 1
+          fi
+          
     # Make directory to upload the test results
       - name: Make Directory for results
         run: mkdir -p testResults
         
    # Run the POSTMAN collection
       - name: Run API Tests
-        run: newman run "Restful Booker BVT.postman_collection.json" -e Production.postman_environment.json -r htmlextra --reporter-htmlextra-export testResults/htmlreport.html
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Files in directory:"
+          ls -la
+          echo "Running Newman tests..."
+          newman run "Restful Booker BVT.postman_collection.json" \
+            -e "Production.postman_environment.json" \
+            -r htmlextra \
+            --reporter-htmlextra-export testResults/htmlreport.html \
+            --verbose
 
     # Upload the contents of Test Results directory to workspace
       - name: Output the run Details
         uses: actions/upload-artifact@v4
+        if: always()
         with: 
           name: RunReports
           path: testResults
