@@ -26,9 +26,7 @@
 									"    pm.expect(jsonData).to.not.have.lengthOf(0);",
 									"});",
 									"",
-									""
 									"postman.setNextRequest(Ping);"
-									""
 								],
 								"type": "text/javascript",
 								"packages": {}
